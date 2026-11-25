@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>องค์ประกอบของซูเปอร์คอมพิวเตอร์ 3D | Supercomputer Architecture Explorer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Prompt & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        obsidian: '#050811',
+                        panel: 'rgba(11, 17, 32, 0.78)',
+                        cyanNeon: '#00f0ff',
+                        violetNeon: '#8b5cf6',
+                        emeraldNeon: '#10b981',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050811;
+            font-family: 'Prompt', sans-serif;
+            color: #f8fafc;
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            background: radial-gradient(circle at 50% 45%, #0f172a 0%, #050811 75%);
+        }
+        /* Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(10, 15, 30, 0.76);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(0, 240, 255, 0.18);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65), inset 0 0 20px rgba(0, 240, 255, 0.04);
+        }
+        .glass-pill {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-pill:hover {
+            border-color: rgba(0, 240, 255, 0.55);
+            background: rgba(0, 240, 255, 0.12);
+            transform: translateY(-2px);
+        }
+        .glass-pill.active {
+            border-color: #00f0ff;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.22), rgba(139, 92, 246, 0.22));
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.28);
+        }
+        /* Custom Scrollbar for Details Drawer */
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+            border-radius: 9999px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.35);
+            border-radius: 9999px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.65);
+        }
+        /* Floating 3D Pin Labels */
+        .pin-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            pointer-events: auto;
+            cursor: pointer;
+            z-index: 15;
+            transition: opacity 0.25s ease, transform 0.2s ease;
+        }
+        .pin-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 9999px;
+            background: #00f0ff;
+            box-shadow: 0 0 12px #00f0ff, 0 0 24px #00f0ff;
+            position: relative;
+        }
+        .pin-dot::after {
+            content: '';
+            position: absolute;
+            inset: -5px;
+            border-radius: 9999px;
+            border: 1.5px solid rgba(0, 240, 255, 0.7);
+            animation: pulseRing 2s infinite;
+        }
+        @keyframes pulseRing {
+            0% { transform: scale(0.8); opacity: 0.9; }
+            100% { transform: scale(1.9); opacity: 0; }
+        }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.25);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #00f0ff;
+            box-shadow: 0 0 10px #00f0ff;
+            margin-top: -5px;
+            cursor: pointer;
+        }
+        .neon-text {
+            text-shadow: 0 0 16px rgba(0, 240, 255, 0.45);
+        }
+        /* Enable text selection inside info drawer */
+        .selectable-text {
+            user-select: text;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Floating 3D Pins Container -->
+    <div id="pins-container" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+    <!-- Top Navigation & Control Header -->
+    <header class="fixed top-0 left-0 right-0 z-20 p-3 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pointer-events-none">
+        <!-- Brand & Title -->
+        <div class="glass-panel rounded-2xl px-4 py-3 flex items-center gap-3.5 pointer-events-auto">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400/20 to-violet-500/30 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
+                <i data-lucide="cpu" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-base sm:text-lg font-bold tracking-tight text-white neon-text">
+                        SUPERCOMPUTER <span class="text-cyan-400">3D</span>
+                    </h1>
+                    <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
+                        EXASCALE NODE
+                    </span>
+                </div>
+                <p class="text-xs text-slate-300/90">สำรวจสถาปัตยกรรมและองค์ประกอบของซูเปอร์คอมพิวเตอร์แบบ 3 มิติ</p>
+            </div>
+        </div>
+
+        <!-- Primary 3D Action Controls -->
+        <div class="flex flex-wrap items-center gap-2 pointer-events-auto">
+            <!-- Exploded View Toggle + Slider -->
+            <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-3">
+                <button id="btn-explode" onclick="toggleExplode()" class="flex items-center gap-2 text-xs sm:text-sm font-medium text-cyan-300 hover:text-white transition cursor-pointer">
+                    <i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i>
+                    <span id="explode-btn-text">แยกชิ้นส่วน (Explode)</span>
+                </button>
+                <input type="range" id="explode-slider" min="0" max="100" value="0" oninput="onExplodeSlider(this.value)" class="w-20 sm:w-28" title="ปรับระดับการแยกชิ้นส่วน">
+            </div>
+
+            <!-- Auto Rotate Toggle -->
+            <button id="btn-rotate" onclick="toggleAutoRotate()" class="glass-pill active rounded-2xl px-3.5 py-2.5 flex items-center gap-2 text-xs sm:text-sm font-medium text-white cursor-pointer" title="หมุนอัตโนมัติ">
+                <i data-lucide="refresh-cw" class="w-4 h-4 text-cyan-400"></i>
+                <span class="hidden sm:inline">หมุนอัตโนมัติ</span>
+            </button>
+
+            <!-- Toggle 3D Pins -->
+            <button id="btn-pins" onclick="togglePins()" class="glass-pill active rounded-2xl px-3.5 py-2.5 flex items-center gap-2 text-xs sm:text-sm font-medium text-white cursor-pointer" title="ซ่อน/แสดงป้ายกำกับ 3D">
+                <i data-lucide="map-pin" class="w-4 h-4 text-violet-400"></i>
+                <span class="hidden md:inline">ป้ายกำกับ</span>
+            </button>
+
+            <!-- Reset Camera -->
+            <button onclick="resetCamera()" class="glass-pill rounded-2xl px-3.5 py-2.5 flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-200 cursor-pointer" title="รีเซ็ตมุมกล้อง">
+                <i data-lucide="maximize-2" class="w-4 h-4 text-slate-300"></i>
+                <span class="hidden md:inline">รีเซ็ตมุมมอง</span>
+            </button>
+
+            <!-- Total Rack Summary Modal Trigger -->
+            <button onclick="toggleSummaryModal(true)" class="rounded-2xl px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-violet-600 hover:from-cyan-400 hover:to-violet-500 text-slate-950 font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/25 transition cursor-pointer">
+                <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                <span>สรุปทั้งระบบ</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Interaction Hint Toast (Top Center below header) -->
+    <div id="interaction-hint" class="fixed top-24 left-1/2 -translate-x-1/2 z-10 pointer-events-none hidden md:flex items-center gap-4 px-4 py-1.5 rounded-full bg-slate-900/60 border border-slate-700/50 backdrop-blur-md text-[11px] text-slate-300">
+        <span class="flex items-center gap-1.5"><i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-cyan-400"></i> คลิกที่ชิ้นส่วน 3D เพื่อดูสเป็ก</span>
+        <span class="text-slate-600">|</span>
+        <span class="flex items-center gap-1.5"><i data-lucide="move-3d" class="w-3.5 h-3.5 text-violet-400"></i> ลากเมาส์เพื่อหมุน 360° / สกรอลล์เพื่อซูม</span>
+    </div>
+
+    <!-- Right Sliding Component Details Drawer -->
+    <aside id="details-drawer" class="fixed top-20 sm:top-24 right-3 sm:right-5 bottom-24 sm:bottom-24 w-[calc(100vw-1.5rem)] sm:w-[420px] lg:w-[450px] glass-panel rounded-3xl z-30 flex flex-col overflow-hidden transition-all duration-300 translate-x-[120%] opacity-0">
+        <!-- Drawer Header -->
+        <div class="p-5 border-b border-slate-700/60 flex items-start justify-between gap-3 bg-gradient-to-r from-cyan-500/10 via-transparent to-violet-500/10">
+            <div class="flex items-center gap-3">
+                <div id="drawer-icon-box" class="w-11 h-11 rounded-2xl bg-cyan-500/15 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shrink-0">
+                    <i id="drawer-icon" data-lucide="cpu" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span id="drawer-category" class="text-[11px] font-mono uppercase tracking-wider text-cyan-400 font-semibold">COMPUTE ACCELERATOR</span>
+                    <h2 id="drawer-title" class="text-lg sm:text-xl font-bold text-white leading-snug">ชื่อชิ้นส่วน</h2>
+                </div>
+            </div>
+            <button onclick="closeDrawer()" class="p-2 rounded-xl bg-slate-800/70 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700/60 transition cursor-pointer" title="ปิดหน้าต่างรายละเอียด">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Drawer Scrollable Content -->
+        <div class="p-5 overflow-y-auto custom-scroll space-y-5 flex-1 selectable-text">
+            <!-- Quick Highlight Badge & Price Card -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl p-3.5 bg-slate-900/75 border border-cyan-500/25">
+                    <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+                        <i data-lucide="tag" class="w-3.5 h-3.5 text-emerald-400"></i>
+                        <span>ราคาต่อหน่วย (โดยประมาณ)</span>
+                    </div>
+                    <div id="drawer-price-unit" class="text-base sm:text-lg font-bold text-emerald-400 font-mono">$35,000</div>
+                    <div id="drawer-price-thb" class="text-[11px] text-slate-400">≈ 1,190,000 บาท</div>
+                </div>
+                <div class="rounded-2xl p-3.5 bg-slate-900/75 border border-violet-500/25">
+                    <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+                        <i data-lucide="server" class="w-3.5 h-3.5 text-violet-400"></i>
+                        <span>จำนวน / ราคารวมทั้งตู้ Rack</span>
+                    </div>
+                    <div id="drawer-rack-qty" class="text-base sm:text-lg font-bold text-violet-300 font-mono">8 โมดูล</div>
+                    <div id="drawer-price-rack" class="text-[11px] text-slate-400">รวม ≈ 9.52 ล้านบาท</div>
+                </div>
+            </div>
+
+            <!-- Technical Specifications -->
+            <div>
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-cyan-300 flex items-center gap-2 mb-2.5">
+                    <i data-lucide="sliders" class="w-4 h-4"></i>
+                    <span>สเป็กทางเทคนิค (Technical Specs)</span>
+                </h3>
+                <div id="drawer-specs" class="grid grid-cols-1 gap-2">
+                    <!-- Dynamic specs injected here -->
+                </div>
+            </div>
+
+            <!-- How it Works -->
+            <div class="rounded-2xl p-4 bg-slate-900/60 border border-slate-700/60">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-violet-300 flex items-center gap-2 mb-2">
+                    <i data-lucide="zap" class="w-4 h-4"></i>
+                    <span>หลักการทำงาน (How It Works)</span>
+                </h3>
+                <p id="drawer-how" class="text-sm text-slate-200 leading-relaxed font-light">
+                    คำอธิบายหลักการทำงาน...
+                </p>
+            </div>
+
+            <!-- Usage & Role in Supercomputer -->
+            <div class="rounded-2xl p-4 bg-slate-900/60 border border-slate-700/60">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-amber-300 flex items-center gap-2 mb-2">
+                    <i data-lucide="compass" class="w-4 h-4"></i>
+                    <span>วิธีการใช้งานและบทบาทในระบบ (Usage & Role)</span>
+                </h3>
+                <p id="drawer-usage" class="text-sm text-slate-200 leading-relaxed font-light">
+                    คำอธิบายวิธีการใช้งาน...
+                </p>
+            </div>
+        </div>
+
+        <!-- Drawer Footer Navigation (Prev / Next Part) -->
+        <div class="p-3.5 border-t border-slate-700/60 bg-slate-950/60 flex items-center justify-between gap-2">
+            <button onclick="selectAdjacentPart(-1)" class="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 transition cursor-pointer">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                <span>ชิ้นก่อนหน้า</span>
+            </button>
+            <span id="drawer-counter" class="text-xs font-mono text-slate-400">1 / 8</span>
+            <button onclick="selectAdjacentPart(1)" class="px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-xs font-medium text-cyan-200 flex items-center gap-1.5 transition cursor-pointer">
+                <span>ชิ้นถัดไป</span>
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Bottom Component Dock Selector -->
+    <nav class="fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-20 w-[calc(100vw-1.5rem)] max-w-5xl">
+        <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 overflow-x-auto custom-scroll">
+            <div id="component-dock" class="flex items-center gap-2 mx-auto">
+                <!-- Component buttons populated dynamically -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Full Supercomputer Summary Modal -->
+    <div id="summary-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-panel rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-cyan-400/30 shadow-2xl relative animate-fadeIn">
+            <button onclick="toggleSummaryModal(false)" class="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 transition cursor-pointer">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400/20 to-violet-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+                    <i data-lucide="server" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-mono text-cyan-400 uppercase tracking-widest">SYSTEM OVERVIEW</span>
+                    <h2 class="text-xl sm:text-2xl font-bold text-white">ภาพรวมตู้ซูเปอร์คอมพิวเตอร์ 1 Rack (AI/HPC Node)</h2>
+                </div>
+            </div>
+
+            <p class="text-sm text-slate-300 leading-relaxed mb-6">
+                ตู้แร็คซูเปอร์คอมพิวเตอร์ระดับองค์กรและศูนย์วิจัย AI (Supercomputer Compute Rack) รวมพลังการประมวลผลแบบขนานความเร็วสูง เข้ากับระบบระบายความร้อนด้วยของเหลวโดยตรง (Direct-to-Chip Liquid Cooling) และเครือข่ายความหน่วงต่ำระดับนาโนวินาที
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-6">
+                <div class="rounded-2xl p-4 bg-slate-900/80 border border-cyan-500/30">
+                    <div class="text-xs text-slate-400 mb-1">พลังประมวลผล AI (FP8)</div>
+                    <div class="text-xl font-bold font-mono text-cyan-300">64 PetaFLOPS</div>
+                    <div class="text-[11px] text-slate-400 mt-1">64,000 ล้านล้านคำสั่ง/วินาที</div>
+                </div>
+                <div class="rounded-2xl p-4 bg-slate-900/80 border border-emerald-500/30">
+                    <div class="text-xs text-slate-400 mb-1">งบประมาณรวมทั้งตู้ (Rack)</div>
+                    <div class="text-xl font-bold font-mono text-emerald-400">~$425,000</div>
+                    <div class="text-[11px] text-slate-400 mt-1">ประมาณ 14.45 ล้านบาท / ตู้</div>
+                </div>
+                <div class="rounded-2xl p-4 bg-slate-900/80 border border-violet-500/30">
+                    <div class="text-xs text-slate-400 mb-1">อัตราการใช้พลังงานสูงสุด</div>
+                    <div class="text-xl font-bold font-mono text-violet-300">42 kW / Rack</div>
+                    <div class="text-[11px] text-slate-400 mt-1">รองรับระบบระบายความร้อนด้วยน้ำ</div>
+                </div>
+            </div>
+
+            <div class="rounded-2xl p-4 bg-slate-900/60 border border-slate-700/60 mb-6">
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-cyan-300 mb-2">การนำไปใช้งานจริงในระดับประเทศและโลก</h4>
+                <ul class="text-xs sm:text-sm text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><strong class="text-white">การฝึกสอนโมเดล AI ขนาดใหญ่ (LLM Training):</strong> ประมวลผลพารามิเตอร์นับแสนล้านตัวพร้อมกัน</li>
+                    <li><strong class="text-white">การพยากรณ์อากาศและภัยพิบัติ:</strong> จำลองสภาพภูมิอากาศโลกความละเอียดสูงแบบเรียลไทม์</li>
+                    <li><strong class="text-white">การค้นพบยาและพันธุศาสตร์:</strong> จำลองการพับตัวของโปรตีนและปฏิกิริยาเคมีระดับโมเลกุล</li>
+                    <li><strong class="text-white">ฟิสิกส์พลังงานสูงและอวกาศ:</strong> จำลองการชนของอนุภาคและการเกิดหลุมดำ</li>
+                </ul>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="toggleSummaryModal(false)" class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm transition cursor-pointer">
+                    กลับสู่การสำรวจ 3D
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. SUPERCOMPUTER COMPONENTS DATABASE (THAI)
+        // =========================================================================
+        const SUPERCOMPUTER_PARTS = [
+            {
+                id: 'gpu',
+                shortName: 'GPU เร่งความเร็ว AI',
+                name: 'โมดูลประมวลผล GPU ความหนาแน่นสูง (AI Compute Blade)',
+                category: 'COMPUTE ACCELERATOR • หัวใจหลักการคำนวณ',
+                icon: 'cpu',
+                color: 0x00f0ff,
+                priceUnitUSD: '$35,000',
+                priceUnitTHB: '≈ 1,190,000 บาท / ใบ',
+                rackQty: '8 โมดูล / ตู้',
+                priceRackTHB: 'รวม ≈ 9,520,000 บาท',
+                specs: [
+                    { label: 'สถาปัตยกรรม', value: 'Tensor Core GPU รุ่นเรือธง (4nm Process)' },
+                    { label: 'หน่วยความจำการ์ดจอ', value: '80GB - 141GB HBM3e ความเร็วสูง' },
+                    { label: 'แบนด์วิดท์หน่วยความจำ', value: '4.8 TB/s (Terabytes per second)' },
+                    { label: 'พลังคำนวณ (FP8 Tensor)', value: '4,000 TFLOPS (4 PetaFLOPS ต่อใบ)' }
+                ],
+                howItWorks: 'ทำงานด้วยหลักการประมวลผลแบบขนานมหาศาล (Massively Parallel Processing) โดยมีแกนประมวลผลย่อย (CUDA / Tensor Cores) นับหมื่นแกนทำงานพร้อมกันในเสี้ยววินาที แตกต่างจาก CPU ทั่วไปที่เน้นทำงานทีละคำสั่งอย่างซับซ้อน ทำให้คำนวณเมทริกซ์ขนาดยักษ์ได้เร็วกว่า CPU หลายสิบเท่า',
+                usage: 'ใช้เป็นกำลังหลักในการฝึกสอนโมเดลปัญญาประดิษฐ์ (Deep Learning / LLM), การจำลองพลศาสตร์ของไหล (CFD), การจำลองสภาพอากาศ และการเรนเดอร์ข้อมูลทางวิทยาศาสตร์ขนาดใหญ่ โดยเชื่อมต่อกันผ่านสะพานความเร็วสูง NVLink',
+                explodeOffset: new THREE.Vector3(2.8, 0.4, 1.5),
+                cameraOffset: new THREE.Vector3(3.8, 1.2, 4.2)
+            },
+            {
+                id: 'cpu',
+                shortName: 'CPU เซิร์ฟเวอร์คู่',
+                name: 'หน่วยประมวลผลกลาง Dual-Socket Server CPU',
+                category: 'HOST PROCESSOR • สมองกลควบคุมระบบ',
+                icon: 'microchip',
+                color: 0x8b5cf6,
+                priceUnitUSD: '$11,500',
+                priceUnitTHB: '≈ 391,000 บาท / ตัว',
+                rackQty: '4 ตัว (2 โหนดคู่)',
+                priceRackTHB: 'รวม ≈ 1,564,000 บาท',
+                specs: [
+                    { label: 'จำนวนแกนประมวลผล', value: '128 Cores / 256 Threads ต่อชิป' },
+                    { label: 'หน่วยความจำแคช L3', value: '512 MB High-Speed Smart Cache' },
+                    { label: 'เลนเชื่อมต่อ PCIe', value: '128 เลน PCIe Gen 5.0 (64 GB/s)' },
+                    { label: 'ค่าการระบายความร้อน (TDP)', value: '400W - 500W ต่อซ็อกเก็ต' }
+                ],
+                howItWorks: 'ทำหน้าที่เป็น "ผู้จัดการและตัวประสานงานหลัก" (Orchestrator) ของโหนดประมวลผล คอยรันระบบปฏิบัติการ Linux ระดับ HPC จัดการคิวงาน แบ่งชุดข้อมูลจากหน่วยความจำส่งป้อนให้ GPU อย่างต่อเนื่องไม่ให้เกิดคอขวด รวมถึงจัดการคำสั่งตรรกะที่ซับซ้อน',
+                usage: 'ใช้ควบคุมการทำงานทั้งหมดของเซิร์ฟเวอร์ การจัดการระบบไฟล์ (File System I/O) การคำนวณทางฟิสิกส์และคณิตศาสตร์ที่ต้องการความแม่นยำสูงแบบ 64-bit (FP64) และบริหารจัดการความปลอดภัยของโหนด',
+                explodeOffset: new THREE.Vector3(-2.7, 1.2, 1.4),
+                cameraOffset: new THREE.Vector3(-3.8, 2.2, 4.0)
+            },
+            {
+                id: 'ram',
+                shortName: 'หน่วยความจำ ECC RAM',
+                name: 'หน่วยความจำความเร็วสูง DDR5 ECC Registered DIMM',
+                category: 'SYSTEM MEMORY • หน่วยความจำหลักไร้ข้อผิดพลาด',
+                icon: 'memory-stick',
+                color: 0x10b981,
+                priceUnitUSD: '$1,200',
+                priceUnitTHB: '≈ 40,800 บาท / แถว (128GB)',
+                rackQty: '32 แถว (รวม 4 TB)',
+                priceRackTHB: 'รวม ≈ 1,305,600 บาท',
+                specs: [
+                    { label: 'ความจุรวมทั้งระบบ', value: '4,096 GB (4 Terabytes) DDR5' },
+                    { label: 'ความเร็วบัส', value: '6,400 MT/s (12-Channel Architecture)' },
+                    { label: 'ระบบแก้ไขข้อผิดพลาด', value: 'On-Die & Chipkill ECC (Error-Correcting Code)' },
+                    { label: 'รูปแบบโมดูล', value: 'RDIMM / LRDIMM เกรดศูนย์ข้อมูล 24/7' }
+                ],
+                howItWorks: 'จัดเก็บชุดข้อมูลชั่วคราวที่ CPU และ GPU กำลังประมวลผลอยู่ด้วยความเร็วระดับนาโนวินาที จุดเด่นสำคัญคือเทคโนโลยี ECC (Error-Correcting Code) ซึ่งมีชิปตรวจสอบบิตข้อมูลแบบเรียลไทม์ สามารถตรวจจับและซ่อมแซมบิตข้อมูลที่เพี้ยนจากรังสีคอสมิกหรือสัญญาณรบกวนทางไฟฟ้าได้ทันทีโดยที่ระบบไม่ล่ม',
+                usage: 'จำเป็นอย่างยิ่งสำหรับงานซูเปอร์คอมพิวเตอร์ที่ต้องรันต่อเนื่องยาวนานหลายสัปดาห์หรือหลายเดือน หากไม่มี ECC ความผิดพลาดเพียง 1 บิตอาจทำให้ผลการคำนวณทางวิทยาศาสตร์ผิดพลาดหรือทำให้ทั้งคลัสเตอร์ค้างได้',
+                explodeOffset: new THREE.Vector3(-2.6, 0.2, 1.8),
+                cameraOffset: new THREE.Vector3(-3.5, 0.8, 4.2)
+            },
+            {
+                id: 'cooling',
+                shortName: 'ระบบหล่อเย็นด้วยน้ำ',
+                name: 'ระบบระบายความร้อนด้วยของเหลว (Direct-to-Chip Liquid Cooling)',
+                category: 'THERMAL MANAGEMENT • ระบบควบคุมอุณหภูมิ',
+                icon: 'droplets',
+                color: 0x38bdf8,
+                priceUnitUSD: '$14,000',
+                priceUnitTHB: '≈ 476,000 บาท / ชุดราง',
+                rackQty: '1 ชุดครบวงจร / ตู้',
+                priceRackTHB: 'รวม ≈ 476,000 บาท',
+                specs: [
+                    { label: 'ประเภทการระบายความร้อน', value: 'Direct-to-Chip Cold Plates + Manifold' },
+                    { label: 'ความสามารถในการรับความร้อน', value: 'สูงสุด 50 kW ต่อตู้แร็ค' },
+                    { label: 'สารหล่อเย็น', value: 'น้ำปราศจากไอออนผสมสารป้องกันการกัดกร่อน' },
+                    { label: 'ประสิทธิภาพพลังงาน (PUE)', value: 'ลดค่าไฟระบบแอร์ลงได้ถึง 40% (PUE ~1.12)' }
+                ],
+                howItWorks: 'นำแผ่นรับความร้อนทองแดง (Copper Cold Plates) ไปประกบติดกับชิป CPU และ GPU โดยตรง ของเหลวเย็นจะไหลผ่านท่อท่อร่วม (Manifold) ดูดซับความร้อนออกจากชิปได้ดีกว่าอากาศถึง 3,000 เท่า แล้วส่งน้ำร้อนออกไปแลกเปลี่ยนความร้อนที่ชุด CDU (Coolant Distribution Unit) นอกตู้',
+                usage: 'ซูเปอร์คอมพิวเตอร์ยุคใหม่มีความหนาแน่นของชิปสูงมากจนพัดลมธรรมดาไม่สามารถระบายความร้อนได้ทัน ระบบน้ำจึงช่วยให้ชิปทำงานที่ความเร็วสูงสุด (Boost Clock) ได้ตลอดเวลาโดยไม่เกิดอาการลดความเร็วเพราะความร้อนสะสม (Thermal Throttling)',
+                explodeOffset: new THREE.Vector3(0.0, 0.3, 2.7),
+                cameraOffset: new THREE.Vector3(2.4, 1.4, 4.8)
+            },
+            {
+                id: 'network',
+                shortName: 'เครือข่าย InfiniBand',
+                name: 'สวิตช์และสายเชื่อมต่อความเร็วสูง Quantum-2 InfiniBand',
+                category: 'HIGH-SPEED INTERCONNECT • ระบบประสาทความเร็วแสง',
+                icon: 'network',
+                color: 0xf59e0b,
+                priceUnitUSD: '$22,000',
+                priceUnitTHB: '≈ 748,000 บาท / สวิตช์',
+                rackQty: '2 สวิตช์ + สายไฟเบอร์',
+                priceRackTHB: 'รวม ≈ 1,496,000 บาท',
+                specs: [
+                    { label: 'แบนด์วิดท์ต่อพอร์ต', value: '400 Gbps / 800 Gbps (NDR InfiniBand)' },
+                    { label: 'ความหน่วง (Latency)', value: 'ต่ำกว่า 130 นาโนวินาที (0.00013 มิลลิวินาที)' },
+                    { label: 'เทคโนโลยีส่งข้อมูล', value: 'RDMA (Remote Direct Memory Access) + SHARP' },
+                    { label: 'สื่อกลางสัญญาณ', value: 'สายใยแก้วนำแสง Active Optical Cables (AOC)' }
+                ],
+                howItWorks: 'ทำหน้าที่เสมือน "ระบบประสาทส่วนกลาง" ที่เชื่อมตู้ซูเปอร์คอมพิวเตอร์หลายร้อยตู้เข้าด้วยกันเป็นสมองเดียว ใช้เทคโนโลยี RDMA ทำให้การ์ดเครือข่ายสามารถอ่าน/เขียนข้อมูลข้ามไปยังหน่วยความจำของเครื่องอื่นได้โดยตรง โดยไม่ต้องเสียเวลาผ่าน CPU ของเครื่องนั้น',
+                usage: 'เมื่อต้องแบ่งงานคำนวณขนาดยักษ์ให้ซูเปอร์คอมพิวเตอร์หลายพันโหนดช่วยกันทำ โหนดทุกตัวต้องแลกเปลี่ยนผลลัพธ์ระหว่างกันตลอดเวลา InfiniBand จึงช่วยป้องกันไม่ให้การส่งข้อมูลผ่านเครือข่ายกลายเป็นตัวถ่วงความเร็วของระบบ',
+                explodeOffset: new THREE.Vector3(0.0, 2.3, 1.3),
+                cameraOffset: new THREE.Vector3(2.2, 3.2, 3.8)
+            },
+            {
+                id: 'storage',
+                shortName: 'สตอเรจ NVMe ความเร็วสูง',
+                name: 'แผงจัดเก็บข้อมูลความเร็วสูง Enterprise U.3 NVMe SSD Array',
+                category: 'HIGH-SPEED STORAGE • คลังข้อมูลความเร็วแสง',
+                icon: 'hard-drive',
+                color: 0xec4899,
+                priceUnitUSD: '$2,400',
+                priceUnitTHB: '≈ 81,600 บาท / ลูก (15.36TB)',
+                rackQty: '8 ลูก (รวม 122.88 TB)',
+                priceRackTHB: 'รวม ≈ 652,800 บาท',
+                specs: [
+                    { label: 'ความจุรวมเฉพาะโหนด', value: '122.88 TB (เชื่อมต่อ Lustre Parallel FS)' },
+                    { label: 'อินเทอร์เฟซ', value: 'PCIe Gen 5.0 x4 NVMe 2.0' },
+                    { label: 'ความเร็วอ่าน/เขียนรวม', value: 'สูงสุด 56 GB/s (อ่าน) / 40 GB/s (เขียน)' },
+                    { label: 'ความทนทาน (Endurance)', value: '3 DWPD (เขียนทับเต็มความจุได้ 3 รอบ/วัน นาน 5 ปี)' }
+                ],
+                howItWorks: 'ใช้หน่วยความจำแฟลชระดับองค์กรเชื่อมต่อตรงเข้ากับเลน PCIe ของ CPU และส่งข้อมูลไปยัง GPU ผ่านเทคโนโลยี GPUDirect Storage ทำให้โหลดชุดข้อมูลฝึกสอนขนาดหลายเทราไบต์เข้าสู่การ์ดจอได้โดยตรงในไม่กี่วินาที',
+                usage: 'ใช้เก็บข้อมูลชุดฝึกสอน AI (Datasets), บันทึกจุดตรวจสอบ (Checkpoints) ระหว่างการคำนวณระยะยาว เผื่อกรณีไฟดับจะได้กู้คืนงานต่อได้ทันที และรองรับระบบไฟล์แบบขนาน (Parallel File System) ที่ให้เครื่องนับพันอ่านไฟล์เดียวกันพร้อมกัน',
+                explodeOffset: new THREE.Vector3(0.0, -1.5, 2.2),
+                cameraOffset: new THREE.Vector3(2.2, -1.2, 4.2)
+            },
+            {
+                id: 'psu',
+                shortName: 'พาวเวอร์ซัพพลาย 80+ Titanium',
+                name: 'ชุดจ่ายไฟสำรองซ้ำซ้อน Redundant 80 PLUS Titanium PSU',
+                category: 'POWER DELIVERY • แหล่งพลังงานเสถียรภาพสูง',
+                icon: 'battery-charging',
+                color: 0x22c55e,
+                priceUnitUSD: '$1,800',
+                priceUnitTHB: '≈ 61,200 บาท / โมดูล',
+                rackQty: '4 โมดูล (N+N Redundant)',
+                priceRackTHB: 'รวม ≈ 244,800 บาท',
+                specs: [
+                    { label: 'กำลังไฟรวม', value: '12,000W (4 x 3,000W Hot-Swappable)' },
+                    { label: 'มาตรฐานประสิทธิภาพ', value: '80 PLUS Titanium (ประสิทธิภาพสูงสุด 96%)' },
+                    { label: 'ระบบสำรองไฟ', value: 'N+N Redundancy ถอดเปลี่ยนได้ทันทีขณะเปิดเครื่อง' },
+                    { label: 'การจ่ายไฟบัสบาร์', value: '48V DC Busbar ลดการสูญเสียพลังงานในสาย' }
+                ],
+                howItWorks: 'แปลงไฟฟ้ากระแสสลับแรงดันสูงจากศูนย์ข้อมูลให้เป็นกระแสตรง (48V DC / 12V DC) ที่นิ่งสนิทไร้สัญญาณรบกวน ทำงานแบบคู่ขนาน (Redundant) หากโมดูลใดโมดูลหนึ่งเสีย โมดูลที่เหลือจะรับภาระจ่ายไฟแทนทันทีโดยไม่มีการสะดุดแม้แต่มิลลิวินาทีเดียว',
+                usage: 'จ่ายพลังงานมหาศาลให้แก่ GPU และ CPU ที่ทำงานเต็มกำลัง 100% ตลอด 24 ชั่วโมง และช่วยให้วิศวกรสามารถดึงพาวเวอร์ซัพพลายตัวที่ชำรุดออกมาเปลี่ยนใหม่ได้ทันที (Hot-Swap) โดยไม่ต้องปิดเครื่องซูเปอร์คอมพิวเตอร์',
+                explodeOffset: new THREE.Vector3(0.0, -2.2, -1.8),
+                cameraOffset: new THREE.Vector3(-2.6, -1.8, -4.2)
+            },
+            {
+                id: 'chassis',
+                shortName: 'โครงตู้แร็ค 42U มาตรฐาน',
+                name: 'โครงสร้างตู้แร็คเซิร์ฟเวอร์ความแข็งแรงสูง 42U Heavy-Duty Rack',
+                category: 'STRUCTURAL ENCLOSURE • โครงสร้างหลักและระบบไหลเวียน',
+                icon: 'box',
+                color: 0x94a3b8,
+                priceUnitUSD: '$4,500',
+                priceUnitTHB: '≈ 153,000 บาท / ตู้',
+                rackQty: '1 ตู้โครงสร้างหลัก',
+                priceRackTHB: 'รวม ≈ 153,000 บาท',
+                specs: [
+                    { label: 'ขนาดมาตรฐาน', value: '42U (สูง ~2 เมตร) กว้าง 800mm ลึก 1,200mm' },
+                    { label: 'ความสามารถในการรับน้ำหนัก', value: 'สูงสุด 1,800 กิโลกรัม (Static Load)' },
+                    { label: 'วัสดุโครงสร้าง', value: 'เหล็กกล้ารีดเย็นเคลือบกันสนิม + ประตูตะแกรงรังผึ้ง' },
+                    { label: 'ระบบความปลอดภัย', value: 'เซ็นเซอร์วัดอุณหภูมิ/ความชื้น + ล็อกแม่เหล็กไฟฟ้า' }
+                ],
+                howItWorks: 'เป็นโครงสร้างเหล็กกล้าความแข็งแรงสูงที่ออกแบบมาเพื่อรองรับน้ำหนักมหาศาลของอุปกรณ์คอมพิวเตอร์และท่อน้ำหล่อเย็น พร้อมรางยึดมาตรฐานสากล (EIA-310) ช่องจัดระเบียบสายเคเบิลความเร็วสูง และประตูตะแกรงเปิดโปร่ง 80% เพื่อให้อากาศถ่ายเทได้ดีที่สุด',
+                usage: 'ทำหน้าที่ปกป้องอุปกรณ์ราคาหลายสิบล้านบาทภายในตู้ ป้องกันคลื่นแม่เหล็กไฟฟ้ารบกวน (EMI Shielding) จัดระเบียบท่อน้ำและสายไฟเบอร์ออปติกไม่ให้หักงอ และเชื่อมต่อตู้แร็คหลายสิบตู้เรียงต่อกันเป็นซูเปอร์คอมพิวเตอร์ขนาดมหึมา',
+                explodeOffset: new THREE.Vector3(0.0, 0.0, -1.6),
+                cameraOffset: new THREE.Vector3(4.6, 2.0, 5.2)
+            }
+        ];
+
+        // =========================================================================
+        // 2. THREE.JS SCENE SETUP & STATE
+        // =========================================================================
+        let scene, camera, renderer, controls, raycaster, mouse;
+        let partGroups = {};       // Map of partId -> THREE.Group
+        let partBasePos = {};      // Map of partId -> THREE.Vector3 (assembled position)
+        let partAnchors = {};      // Map of partId -> THREE.Vector3 (local anchor for 3D pin)
+        let interactiveMeshes = []; // Flat list of meshes for raycasting
+        let selectedPartId = null;
+        let hoveredPartId = null;
+        let explodeFactor = 0;      // 0 = assembled, 1 = fully exploded
+        let targetExplode = 0;
+        let autoRotate = true;
+        let showPins = true;
+        let clock = new THREE.Clock();
+
+        // Camera smooth transition state
+        let cameraTransition = {
+            active: false,
+            targetPos: new THREE.Vector3(),
+            targetLookAt: new THREE.Vector3(),
+            progress: 0
+        };
+
+        const DEFAULT_CAM_POS = new THREE.Vector3(4.5, 2.1, 5.4);
+        const DEFAULT_LOOK_AT = new THREE.Vector3(0, 0.1, 0);
+
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050811, 0.045);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.copy(DEFAULT_CAM_POS);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.25;
+            container.appendChild(renderer.domElement);
+
+            // OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.minDistance = 2.4;
+            controls.maxDistance = 13;
+            controls.maxPolarAngle = Math.PI * 0.52;
+            controls.target.copy(DEFAULT_LOOK_AT);
+            controls.autoRotate = autoRotate;
+            controls.autoRotateSpeed = 1.1;
+
+            // Cancel smooth camera lerp if user manually drags
+            controls.addEventListener('start', () => {
+                cameraTransition.active = false;
+            });
+
+            // Raycaster & Mouse
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2(-999, -999);
+
+            // Lighting Setup
+            setupLighting();
+
+            // Environment Floor & Holographic Grid
+            setupEnvironment();
+
+            // Build Detailed 3D Supercomputer Rack
+            buildSupercomputerModel();
+
+            // Build UI Elements (Dock + Floating Pins)
+            buildUI();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('pointermove', onPointerMove);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+            renderer.domElement.addEventListener('pointerup', onPointerUp);
+
+            // Start Animation Loop
+            animate();
+        }
+
+        function setupLighting() {
+            // Ambient base
+            const ambient = new THREE.AmbientLight(0x1e293b, 1.4);
+            scene.add(ambient);
+
+            // Key Light (Cool White/Blue)
+            const keyLight = new THREE.DirectionalLight(0xe0f2fe, 2.2);
+            keyLight.position.set(6, 9, 7);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.camera.near = 1;
+            keyLight.shadow.camera.far = 25;
+            scene.add(keyLight);
+
+            // Rim Light Cyan (Left Front)
+            const cyanLight = new THREE.PointLight(0x00f0ff, 3.2, 14);
+            cyanLight.position.set(-4.5, 2.5, 3.5);
+            scene.add(cyanLight);
+
+            // Rim Light Violet (Right Back)
+            const violetLight = new THREE.PointLight(0x8b5cf6, 3.2, 14);
+            violetLight.position.set(4.5, 2.0, -3.5);
+            scene.add(violetLight);
+
+            // Internal Core Glow
+            const coreLight = new THREE.PointLight(0x38bdf8, 2.0, 6);
+            coreLight.position.set(0, 0.2, 0.5);
+            scene.add(coreLight);
+        }
+
+        function setupEnvironment() {
+            // Reflective Dark Floor Plane
+            const floorGeo = new THREE.CircleGeometry(18, 64);
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0x060b19,
+                metalness: 0.85,
+                roughness: 0.25
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -2.35;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Futuristic Grid Helper
+            const grid = new THREE.GridHelper(22, 44, 0x00f0ff, 0x1e293b);
+            grid.position.y = -2.34;
+            grid.material.opacity = 0.28;
+            grid.material.transparent = true;
+            scene.add(grid);
+
+            // Glowing Base Pedestal Ring under Supercomputer
+            const ringGeo = new THREE.RingGeometry(1.65, 1.75, 64);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x00f0ff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.65
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = -2.33;
+            scene.add(ring);
+
+            const outerRingGeo = new THREE.RingGeometry(2.15, 2.18, 64);
+            const outerRingMat = new THREE.MeshBasicMaterial({
+                color: 0x8b5cf6,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.45
+            });
+            const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
+            outerRing.rotation.x = -Math.PI / 2;
+            outerRing.position.y = -2.33;
+            scene.add(outerRing);
+        }
+
+        // Helper to register clickable meshes to a partId
+        function registerPartMesh(mesh, partId, baseEmissiveHex = 0x000000, baseEmissiveIntensity = 0) {
+            mesh.userData.partId = partId;
+            mesh.userData.baseEmissive = new THREE.Color(baseEmissiveHex);
+            mesh.userData.baseEmissiveIntensity = baseEmissiveIntensity;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            interactiveMeshes.push(mesh);
+        }
+
+        // =========================================================================
+        // 3. PROCEDURAL 3D SUPERCOMPUTER ARCHITECTURE BUILDER
+        // =========================================================================
+        function buildSupercomputerModel() {
+            // Shared Materials
+            const darkMetalMat = new THREE.MeshStandardMaterial({
+                color: 0x111827,
+                metalness: 0.85,
+                roughness: 0.3
+            });
+            const brushedSteelMat = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                metalness: 0.9,
+                roughness: 0.22
+            });
+            const pcbGreenDarkMat = new THREE.MeshStandardMaterial({
+                color: 0x06281e,
+                metalness: 0.4,
+                roughness: 0.5
+            });
+            const pcbBlueDarkMat = new THREE.MeshStandardMaterial({
+                color: 0x0a192f,
+                metalness: 0.45,
+                roughness: 0.45
+            });
+            const goldPinMat = new THREE.MeshStandardMaterial({
+                color: 0xfbbf24,
+                metalness: 0.95,
+                roughness: 0.15
+            });
+
+            // -----------------------------------------------------------------
+            // PART 1: CHASSIS (42U Heavy-Duty Server Rack Frame)
+            // -----------------------------------------------------------------
+            const chassisGroup = new THREE.Group();
+            const rackW = 1.9, rackH = 4.4, rackD = 2.1;
+
+            // 4 Vertical Pillars
+            const pillarGeo = new THREE.BoxGeometry(0.12, rackH, 0.12);
+            const pillarOffsets = [
+                [-rackW/2, 0, -rackD/2],
+                [ rackW/2, 0, -rackD/2],
+                [-rackW/2, 0,  rackD/2],
+                [ rackW/2, 0,  rackD/2]
+            ];
+            pillarOffsets.forEach(pos => {
+                const pillar = new THREE.Mesh(pillarGeo, darkMetalMat);
+                pillar.position.set(...pos);
+                registerPartMesh(pillar, 'chassis');
+                chassisGroup.add(pillar);
+            });
+
+            // Top & Bottom Frame Caps
+            const capGeo = new THREE.BoxGeometry(rackW + 0.14, 0.14, rackD + 0.14);
+            const topCap = new THREE.Mesh(capGeo, darkMetalMat);
+            topCap.position.set(0, rackH/2, 0);
+            registerPartMesh(topCap, 'chassis');
+            chassisGroup.add(topCap);
+
+            const bottomCap = new THREE.Mesh(capGeo, darkMetalMat);
+            bottomCap.position.set(0, -rackH/2, 0);
+            registerPartMesh(bottomCap, 'chassis');
+            chassisGroup.add(bottomCap);
+
+            // Side Semi-Transparent Tempered Glass Panels with Cyan Trim
+            const sideGlassGeo = new THREE.BoxGeometry(0.03, rackH - 0.2, rackD - 0.15);
+            const sideGlassMat = new THREE.MeshPhysicalMaterial({
+                color: 0x0f172a,
+                metalness: 0.1,
+                roughness: 0.1,
+                transparent: true,
+                opacity: 0.32
+            });
+            [-rackW/2 - 0.04, rackW/2 + 0.04].forEach(xPos => {
+                const glass = new THREE.Mesh(sideGlassGeo, sideGlassMat);
+                glass.position.set(xPos, 0, 0);
+                registerPartMesh(glass, 'chassis');
+                chassisGroup.add(glass);
+            });
+
+            // Front Vertical Neon Accent Strips on Rack Pillars
+            const stripGeo = new THREE.BoxGeometry(0.025, rackH - 0.25, 0.025);
+            const cyanGlowMat = new THREE.MeshStandardMaterial({
+                color: 0x00f0ff,
+                emissive: 0x00f0ff,
+                emissiveIntensity: 1.8
+            });
+            [-rackW/2 - 0.055, rackW/2 + 0.055].forEach(xPos => {
+                const strip = new THREE.Mesh(stripGeo, cyanGlowMat);
+                strip.position.set(xPos, 0, rackD/2 + 0.055);
+                registerPartMesh(strip, 'chassis', 0x00f0ff, 1.8);
+                chassisGroup.add(strip);
+            });
+
+            // Back Mesh Panel
+            const backPanelGeo = new THREE.BoxGeometry(rackW - 0.1, rackH - 0.2, 0.04);
+            const backPanel = new THREE.Mesh(backPanelGeo, brushedSteelMat);
+            backPanel.position.set(0, 0, -rackD/2);
+            registerPartMesh(backPanel, 'chassis');
+            chassisGroup.add(backPanel);
+
+            scene.add(chassisGroup);
+            partGroups['chassis'] = chassisGroup;
+            partBasePos['chassis'] = new THREE.Vector3(0, -0.1, 0);
+            chassisGroup.position.copy(partBasePos['chassis']);
+            partAnchors['chassis'] = new THREE.Vector3(1.0, 1.9, 1.0);
+
+            // -----------------------------------------------------------------
+            // PART 2: GPU COMPUTE BLADES (8x High-Density Tensor GPU Modules)
+            // -----------------------------------------------------------------
+            const gpuGroup = new THREE.Group();
+            for (let i = 0; i < 8; i++) {
+                const bladeY = 0.72 - i * 0.175;
+                const bladeUnit = new THREE.Group();
+                bladeUnit.position.set(0.28, bladeY, 0.15);
+
+                // GPU PCB Board
+                const pcb = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.03, 1.25), pcbBlueDarkMat);
+                registerPartMesh(pcb, 'gpu');
+                bladeUnit.add(pcb);
+
+                // Aluminum Heatsink Shroud
+                const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.09, 1.15), brushedSteelMat);
+                shroud.position.y = 0.055;
+                registerPartMesh(shroud, 'gpu');
+                bladeUnit.add(shroud);
+
+                // Glowing Cyan Tensor Core Accent Bar on Front Edge
+                const ledBar = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.86, 0.022, 0.03),
+                    new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00f0ff, emissiveIntensity: 2.0 })
+                );
+                ledBar.position.set(0, 0.06, 0.58);
+                registerPartMesh(ledBar, 'gpu', 0x00f0ff, 2.0);
+                bladeUnit.add(ledBar);
+
+                // NVLink Gold Bridge Connector on side
+                const nvlink = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.35), goldPinMat);
+                nvlink.position.set(0.48, 0.04, 0.2);
+                registerPartMesh(nvlink, 'gpu');
+                bladeUnit.add(nvlink);
+
+                gpuGroup.add(bladeUnit);
+            }
+            scene.add(gpuGroup);
+            partGroups['gpu'] = gpuGroup;
+            partBasePos['gpu'] = new THREE.Vector3(0, 0, 0);
+            partAnchors['gpu'] = new THREE.Vector3(0.75, 0.25, 0.7);
+
+            // -----------------------------------------------------------------
+            // PART 3: DUAL-SOCKET SERVER CPUs (Host Compute Tray)
+            // -----------------------------------------------------------------
+            const cpuGroup = new THREE.Group();
+            // Motherboard Tray
+            const mobo = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.04, 1.35), pcbGreenDarkMat);
+            mobo.position.set(-0.48, 0.72, 0.1);
+            registerPartMesh(mobo, 'cpu');
+            cpuGroup.add(mobo);
+
+            // 2 Large Server CPU Sockets + Heatspreaders (IHS)
+            [-0.25, 0.42].forEach(zOffset => {
+                const socketBase = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.34), darkMetalMat);
+                socketBase.position.set(-0.48, 0.75, zOffset);
+                registerPartMesh(socketBase, 'cpu');
+                cpuGroup.add(socketBase);
+
+                const ihs = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.035, 0.30), brushedSteelMat);
+                ihs.position.set(-0.48, 0.78, zOffset);
+                registerPartMesh(ihs, 'cpu');
+                cpuGroup.add(ihs);
+
+                // Violet Neon Ring around CPU Core
+                const cpuGlow = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.30, 0.015, 0.32),
+                    new THREE.MeshStandardMaterial({ color: 0x8b5cf6, emissive: 0x8b5cf6, emissiveIntensity: 2.2 })
+                );
+                cpuGlow.position.set(-0.48, 0.765, zOffset);
+                registerPartMesh(cpuGlow, 'cpu', 0x8b5cf6, 2.2);
+                cpuGroup.add(cpuGlow);
+            });
+
+            scene.add(cpuGroup);
+            partGroups['cpu'] = cpuGroup;
+            partBasePos['cpu'] = new THREE.Vector3(0, 0, 0);
+            partAnchors['cpu'] = new THREE.Vector3(-0.5, 0.85, 0.45);
+
+            // -----------------------------------------------------------------
+            // PART 4: DDR5 ECC RAM MODULES (32 High-Density Sticks)
+            // -----------------------------------------------------------------
+            const ramGroup = new THREE.Group();
+            const ramHeatspreaderMat = new THREE.MeshStandardMaterial({
+                color: 0x0f172a,
+                metalness: 0.85,
+                roughness: 0.2
+            });
+            const emeraldGlowMat = new THREE.MeshStandardMaterial({
+                color: 0x10b981,
+                emissive: 0x10b981,
+                emissiveIntensity: 1.9
+            });
+
+            // 2 Banks of 12 DIMMs flanking the CPUs
+            [-0.75, -0.21].forEach(xPos => {
+                for (let r = 0; r < 12; r++) {
+                    const zPos = -0.45 + r * 0.095;
+                    const stick = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.18, 0.022), ramHeatspreaderMat);
+                    stick.position.set(xPos, 0.82, zPos);
+                    registerPartMesh(stick, 'ram');
+                    ramGroup.add(stick);
+
+                    const topLed = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.018, 0.023), emeraldGlowMat);
+                    topLed.position.set(xPos, 0.915, zPos);
+                    registerPartMesh(topLed, 'ram', 0x10b981, 1.9);
+                    ramGroup.add(topLed);
+                }
+            });
+
+            scene.add(ramGroup);
+            partGroups['ram'] = ramGroup;
+            partBasePos['ram'] = new THREE.Vector3(0, 0, 0);
+            partAnchors['ram'] = new THREE.Vector3(-0.78, 0.92, 0.55);
+
+            // -----------------------------------------------------------------
+            // PART 5: DIRECT-TO-CHIP LIQUID COOLING MANIFOLD & PIPES
+            // -----------------------------------------------------------------
+            const coolingGroup = new THREE.Group();
+            const pipeCyanMat = new THREE.MeshStandardMaterial({
+                color: 0x0ea5e9,
+                emissive: 0x0284c7,
+                emissiveIntensity: 1.1,
+                metalness: 0.4,
+                roughness: 0.2
+            });
+            const pipeRedHotMat = new THREE.MeshStandardMaterial({
+                color: 0xf43f5e,
+                emissive: 0xe11d48,
+                emissiveIntensity: 0.95,
+                metalness: 0.4,
+                roughness: 0.2
+            });
+            const copperPlateMat = new THREE.MeshStandardMaterial({
+                color: 0xd97706,
+                metalness: 0.92,
+                roughness: 0.18
+            });
+
+            // Vertical Cold Supply Manifold (Left Front)
+            const supplyManifold = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2.5, 20), pipeCyanMat);
+            supplyManifold.position.set(-0.82, 0.05, 0.88);
+            registerPartMesh(supplyManifold, 'cooling', 0x0284c7, 1.1);
+            coolingGroup.add(supplyManifold);
+
+            // Vertical Warm Return Manifold (Right Front)
+            const returnManifold = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 2.5, 20), pipeRedHotMat);
+            returnManifold.position.set(0.82, 0.05, 0.88);
+            registerPartMesh(returnManifold, 'cooling', 0xe11d48, 0.95);
+            coolingGroup.add(returnManifold);
+
+            // Copper Cold Plates on CPUs + Connecting Tubes
+            [-0.25, 0.42].forEach(zOffset => {
+                const coldPlate = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.04, 0.26), copperPlateMat);
+                coldPlate.position.set(-0.48, 0.82, zOffset);
+                registerPartMesh(coldPlate, 'cooling');
+                coolingGroup.add(coldPlate);
+            });
+
+            // Horizontal Coolant Tubes feeding GPU & CPU layers
+            for (let t = 0; t < 5; t++) {
+                const yTube = 0.72 - t * 0.32;
+                const tubeIn = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1.62, 12), pipeCyanMat);
+                tubeIn.rotation.z = Math.PI / 2;
+                tubeIn.position.set(0, yTube, 0.84);
+                registerPartMesh(tubeIn, 'cooling', 0x0284c7, 1.1);
+                coolingGroup.add(tubeIn);
+            }
+
+            scene.add(coolingGroup);
+            partGroups['cooling'] = coolingGroup;
+            partBasePos['cooling'] = new THREE.Vector3(0, 0, 0);
+            partAnchors['cooling'] = new THREE.Vector3(-0.82, 0.45, 0.92);
+
+            // -----------------------------------------------------------------
+            // PART 6: QUANTUM-2 INFINIBAND NETWORK SWITCHES (Top 2U)
+            // -----------------------------------------------------------------
+            const networkGroup = new THREE.Group();
+            const amberGlowMat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b,
+                emissive: 0xf59e0b,
+                emissiveIntensity: 1.9
+            });
+
+            for (let s = 0; s < 2; s++) {
+                const swY = 1.62 - s * 0.24;
+                const swBody = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.18, 1.65), brushedSteelMat);
+                swBody.position.set(0, swY, 0.05);
+                registerPartMesh(swBody, 'network');
+                networkGroup.add(swBody);
+
+                // 16 QSFP112 Optical Ports with glowing amber activity LEDs
+                for (let p = 0; p < 16; p++) {
+                    const px = -0.68 + p * 0.09;
+                    const port = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.05), darkMetalMat);
+                    port.position.set(px, swY, 0.89);
+                    registerPartMesh(port, 'network');
+                    networkGroup.add(port);
+
+                    const led = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.018, 0.02), amberGlowMat);
+                    led.position.set(px, swY + 0.052, 0.90);
+                    registerPartMesh(led, 'network', 0xf59e0b, 1.9);
+                    networkGroup.add(led);
+                }
+            }
+
+            scene.add(networkGroup);
+            partGroups['network'] = networkGroup;
+            partBasePos['network'] = new THREE.Vector3(0, 0, 0);
+            partAnchors['network'] = new THREE.Vector3(0.0, 1.68, 0.92);
+
+            // -----------------------------------------------------------------
+            // PART 7: ENTERPRISE NVMe U.3 SSD STORAGE ARRAY (Lower Bay)
+            // -----------------------------------------------------------------
+            const storageGroup = new THREE.Group();
+            const storageChassis = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.34, 1.55), darkMetalMat);
+            storageChassis.position.set(0, -1.08, 0.08);
+            registerPartMesh(storageChassis, 'storage');
+            storageGroup.add(storageChassis);
+
+            const pinkGlowMat = new THREE.MeshStandardMaterial({
+                color: 0xec4899,
+                emissive: 0xec4899,
+                emissiveIntensity: 1.9
+            });
+
+            // 8 Hot-Swap NVMe Drive Caddies
+            for (let d = 0; d < 8; d++) {
+                const dx = -0.70 + d * 0.20;
+                const drive = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.26, 0.85), brushedSteelMat);
+                drive.position.set(dx, -1.08, 0.48);
+                registerPartMesh(drive, 'storage');
+                storageGroup.add(drive);
+
+                const statusLed = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.022, 0.025), pinkGlowMat);
+                statusLed.position.set(dx, -0.99, 0.91);
+                registerPartMesh(statusLed, 'storage', 0xec4899, 1.9);
+                storageGroup.add(statusLed);
+            }
+
+            scene.add(storageGroup);
+            partGroups['storage'] = storageGroup;
+            partBasePos['storage'] = new THREE.Vector3(0, 0, 0);
+            partAnchors['storage'] = new THREE.Vector3(0.0, -1.05, 0.92);
+
+            // -----------------------------------------------------------------
+            // PART 8: REDUNDANT 80+ TITANIUM PSU MODULES (Bottom Rear)
+            // -----------------------------------------------------------------
+            const psuGroup = new THREE.Group();
+            const greenGlowMat = new THREE.MeshStandardMaterial({
+                color: 0x22c55e,
+                emissive: 0x22c55e,
+                emissiveIntensity: 2.0
+            });
+
+            for (let u = 0; u < 4; u++) {
+                const ux = -0.60 + u * 0.40;
+                const psuBox = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.32, 1.35), brushedSteelMat);
+                psuBox.position.set(ux, -1.75, -0.22);
+                registerPartMesh(psuBox, 'psu');
+                psuGroup.add(psuBox);
+
+                // Power Handle & Green Status LED
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.04, 0.08), darkMetalMat);
+                handle.position.set(ux, -1.75, -0.92);
+                registerPartMesh(handle, 'psu');
+                psuGroup.add(handle);
+
+                const psuLed = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.025), greenGlowMat);
+                psuLed.position.set(ux, -1.64, -0.90);
+                registerPartMesh(psuLed, 'psu', 0x22c55e, 2.0);
+                psuGroup.add(psuLed);
+            }
+
+            scene.add(psuGroup);
+            partGroups['psu'] = psuGroup;
+            partBasePos['psu'] = new THREE.Vector3(0, 0, 0);
+            partAnchors['psu'] = new THREE.Vector3(0.0, -1.75, -0.92);
+        }
+
+        // =========================================================================
+        // 4. UI GENERATION & INTERACTION HANDLERS
+        // =========================================================================
+        function buildUI() {
+            const dock = document.getElementById('component-dock');
+            const pinsContainer = document.getElementById('pins-container');
+
+            SUPERCOMPUTER_PARTS.forEach((part, index) => {
+                // 1. Bottom Dock Pill Button
+                const btn = document.createElement('button');
+                btn.id = `dock-btn-${part.id}`;
+                btn.onclick = () => selectPart(part.id);
+                btn.className = 'glass-pill shrink-0 rounded-xl px-3.5 py-2 flex items-center gap-2 text-xs font-medium text-slate-200 cursor-pointer';
+                btn.innerHTML = `
+                    <span class="w-2 h-2 rounded-full" style="background-color: #${part.color.toString(16).padStart(6, '0')}; box-shadow: 0 0 8px #${part.color.toString(16).padStart(6, '0')};"></span>
+                    <span>${part.shortName}</span>
+                `;
+                dock.appendChild(btn);
+
+                // 2. Floating 3D Pin Label
+                const pin = document.createElement('div');
+                pin.id = `pin-${part.id}`;
+                pin.className = 'pin-label flex items-center gap-2';
+                pin.onclick = (e) => {
+                    e.stopPropagation();
+                    selectPart(part.id);
+                };
+                pin.innerHTML = `
+                    <div class="pin-dot" style="background-color: #${part.color.toString(16).padStart(6, '0')}; box-shadow: 0 0 12px #${part.color.toString(16).padStart(6, '0')};"></div>
+                    <div class="px-2.5 py-1 rounded-lg bg-slate-950/85 border border-slate-700/80 backdrop-blur-md text-[11px] font-medium text-white shadow-lg whitespace-nowrap hover:border-cyan-400 transition">
+                        ${part.shortName}
+                    </div>
+                `;
+                pinsContainer.appendChild(pin);
+            });
+
+            // Initialize Lucide icons
+            lucide.createIcons();
+        }
+
+        function selectPart(partId) {
+            const partIndex = SUPERCOMPUTER_PARTS.findIndex(p => p.id === partId);
+            if (partIndex === -1) return;
+
+            const part = SUPERCOMPUTER_PARTS[partIndex];
+            selectedPartId = partId;
+
+            // Stop auto-rotate when inspecting a specific part
+            if (autoRotate) {
+                toggleAutoRotate(false);
+            }
+
+            // Highlight active dock pill
+            document.querySelectorAll('#component-dock button').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.getElementById(`dock-btn-${partId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+                activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+
+            // Update Drawer Content
+            document.getElementById('drawer-category').textContent = part.category;
+            document.getElementById('drawer-title').textContent = part.name;
+            document.getElementById('drawer-price-unit').textContent = part.priceUnitUSD;
+            document.getElementById('drawer-price-thb').textContent = part.priceUnitTHB;
+            document.getElementById('drawer-rack-qty').textContent = part.rackQty;
+            document.getElementById('drawer-price-rack').textContent = part.priceRackTHB;
+            document.getElementById('drawer-how').textContent = part.howItWorks;
+            document.getElementById('drawer-usage').textContent = part.usage;
+            document.getElementById('drawer-counter').textContent = `${partIndex + 1} / ${SUPERCOMPUTER_PARTS.length}`;
+
+            // Update Icon
+            const iconBox = document.getElementById('drawer-icon-box');
+            const hexColor = `#${part.color.toString(16).padStart(6, '0')}`;
+            iconBox.style.borderColor = hexColor;
+            iconBox.style.color = hexColor;
+            iconBox.innerHTML = `<i data-lucide="${part.icon}" class="w-6 h-6"></i>`;
+
+            // Populate Specs List
+            const specsContainer = document.getElementById('drawer-specs');
+            specsContainer.innerHTML = part.specs.map(s => `
+                <div class="rounded-xl px-3.5 py-2.5 bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3">
+                    <span class="text-xs text-slate-400 shrink-0">${s.label}</span>
+                    <span class="text-xs font-medium text-white text-right font-mono">${s.value}</span>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+
+            // Open Drawer
+            const drawer = document.getElementById('details-drawer');
+            drawer.classList.remove('translate-x-[120%]', 'opacity-0');
+            drawer.classList.add('translate-x-0', 'opacity-100');
+
+            // Smoothly focus camera on the selected part
+            focusCameraOnPart(part);
+        }
+
+        function focusCameraOnPart(part) {
+            const group = partGroups[part.id];
+            if (!group) return;
+
+            // Calculate current world target of the part (accounting for explodeFactor)
+            const currentPartPos = partBasePos[part.id].clone().addScaledVector(part.explodeOffset, targetExplode);
+            const lookTarget = currentPartPos.clone().add(partAnchors[part.id]).multiplyScalar(0.55);
+
+            // Offset camera slightly to the left so right-side drawer doesn't block the part
+            const camDest = lookTarget.clone().add(part.cameraOffset);
+
+            cameraTransition.active = true;
+            cameraTransition.targetPos.copy(camDest);
+            cameraTransition.targetLookAt.copy(lookTarget);
+            cameraTransition.progress = 0;
+        }
+
+        function closeDrawer() {
+            selectedPartId = null;
+            document.querySelectorAll('#component-dock button').forEach(b => b.classList.remove('active'));
+            const drawer = document.getElementById('details-drawer');
+            drawer.classList.add('translate-x-[120%]', 'opacity-0');
+            drawer.classList.remove('translate-x-0', 'opacity-100');
+        }
+
+        function selectAdjacentPart(direction) {
+            if (!selectedPartId) {
+                selectPart(SUPERCOMPUTER_PARTS[0].id);
+                return;
+            }
+            const idx = SUPERCOMPUTER_PARTS.findIndex(p => p.id === selectedPartId);
+            const nextIdx = (idx + direction + SUPERCOMPUTER_PARTS.length) % SUPERCOMPUTER_PARTS.length;
+            selectPart(SUPERCOMPUTER_PARTS[nextIdx].id);
+        }
+
+        // =========================================================================
+        // 5. CONTROLS: EXPLODED VIEW, AUTO-ROTATE, PINS, CAMERA RESET
+        // =========================================================================
+        function toggleExplode() {
+            targetExplode = targetExplode > 0.5 ? 0 : 1;
+            const slider = document.getElementById('explode-slider');
+            slider.value = Math.round(targetExplode * 100);
+            updateExplodeButtonLabel();
+
+            if (selectedPartId) {
+                const part = SUPERCOMPUTER_PARTS.find(p => p.id === selectedPartId);
+                if (part) focusCameraOnPart(part);
+            }
+        }
+
+        function onExplodeSlider(val) {
+            targetExplode = parseFloat(val) / 100;
+            updateExplodeButtonLabel();
+        }
+
+        function updateExplodeButtonLabel() {
+            const label = document.getElementById('explode-btn-text');
+            label.textContent = targetExplode > 0.5 ? 'ประกอบร่าง (Assemble)' : 'แยกชิ้นส่วน (Explode)';
+        }
+
+        function toggleAutoRotate(forceState) {
+            autoRotate = typeof forceState === 'boolean' ? forceState : !autoRotate;
+            controls.autoRotate = autoRotate;
+            const btn = document.getElementById('btn-rotate');
+            if (autoRotate) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+
+        function togglePins() {
+            showPins = !showPins;
+            const btn = document.getElementById('btn-pins');
+            const container = document.getElementById('pins-container');
+            if (showPins) {
+                btn.classList.add('active');
+                container.style.opacity = '1';
+            } else {
+                btn.classList.remove('active');
+                container.style.opacity = '0';
+            }
+        }
+
+        function resetCamera() {
+            closeDrawer();
+            cameraTransition.active = true;
+            cameraTransition.targetPos.copy(DEFAULT_CAM_POS);
+            cameraTransition.targetLookAt.copy(DEFAULT_LOOK_AT);
+            cameraTransition.progress = 0;
+        }
+
+        function toggleSummaryModal(show) {
+            const modal = document.getElementById('summary-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // =========================================================================
+        // 6. POINTER RAYCASTING (HOVER & CLICK SELECTION ON 3D MESHES)
+        // =========================================================================
+        let pointerDownPos = { x: 0, y: 0 };
+
+        function updateMouseNDC(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        }
+
+        function onPointerMove(event) {
+            updateMouseNDC(event);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactiveMeshes, false);
+
+            if (intersects.length > 0) {
+                const hitPartId = intersects[0].object.userData.partId;
+                hoveredPartId = hitPartId;
+                document.body.style.cursor = 'pointer';
+            } else {
+                hoveredPartId = null;
+                document.body.style.cursor = 'default';
+            }
+        }
+
+        function onPointerDown(event) {
+            pointerDownPos.x = event.clientX;
+            pointerDownPos.y = event.clientY;
+        }
+
+        function onPointerUp(event) {
+            // Only trigger click if pointer didn't drag the camera
+            const dist = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+            if (dist > 6) return;
+
+            updateMouseNDC(event);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactiveMeshes, false);
+
+            if (intersects.length > 0) {
+                const clickedPartId = intersects[0].object.userData.partId;
+                if (clickedPartId) {
+                    selectPart(clickedPartId);
+                }
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // =========================================================================
+        // 7. MAIN ANIMATION LOOP & 3D PIN PROJECTION
+        // =========================================================================
+        function updatePartVisualStates(elapsedTime) {
+            // Smoothly interpolate explodeFactor
+            explodeFactor += (targetExplode - explodeFactor) * 0.08;
+
+            SUPERCOMPUTER_PARTS.forEach(part => {
+                const group = partGroups[part.id];
+                if (!group) return;
+
+                // Apply Exploded View Offset + subtle floating breath when exploded
+                const floatY = explodeFactor * Math.sin(elapsedTime * 1.8 + part.color) * 0.03;
+                group.position.copy(partBasePos[part.id])
+                    .addScaledVector(part.explodeOffset, explodeFactor);
+                group.position.y += floatY;
+
+                // Highlight material emissive if hovered or selected
+                const isSelected = selectedPartId === part.id;
+                const isHovered = hoveredPartId === part.id;
+                const highlightColor = new THREE.Color(part.color);
+
+                group.traverse(child => {
+                    if (child.isMesh && child.material && child.material.emissive) {
+                        const baseEmissive = child.userData.baseEmissive || new THREE.Color(0x000000);
+                        const baseIntensity = child.userData.baseEmissiveIntensity || 0;
+
+                        if (isSelected) {
+                            child.material.emissive.lerp(highlightColor, 0.25);
+                            child.material.emissiveIntensity = Math.max(baseIntensity, 0.65 + Math.sin(elapsedTime * 4) * 0.2);
+                        } else if (isHovered) {
+                            child.material.emissive.lerp(highlightColor, 0.2);
+                            child.material.emissiveIntensity = Math.max(baseIntensity, 0.45);
+                        } else {
+                            child.material.emissive.lerp(baseEmissive, 0.15);
+                            child.material.emissiveIntensity += (baseIntensity - child.material.emissiveIntensity) * 0.15;
+                        }
+                    }
+                });
+
+                // Project 3D Anchor to 2D Screen Coordinates for Floating Pin
+                const pinEl = document.getElementById(`pin-${part.id}`);
+                if (pinEl && showPins) {
+                    const worldAnchor = partAnchors[part.id].clone().add(group.position);
+                    const projected = worldAnchor.project(camera);
+
+                    // Hide pin if behind camera
+                    if (projected.z > 1) {
+                        pinEl.style.opacity = '0';
+                        pinEl.style.pointerEvents = 'none';
+                    } else {
+                        const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
+                        const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
+                        pinEl.style.left = `${x}px`;
+                        pinEl.style.top = `${y}px`;
+                        pinEl.style.opacity = isSelected ? '1' : '0.88';
+                        pinEl.style.pointerEvents = 'auto';
+                        pinEl.style.transform = isSelected ? 'translate(-50%, -50%) scale(1.12)' : 'translate(-50%, -50%) scale(1)';
+                    }
+                }
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            // Update Smooth Camera Transition
+            if (cameraTransition.active) {
+                camera.position.lerp(cameraTransition.targetPos, 0.07);
+                controls.target.lerp(cameraTransition.targetLookAt, 0.07);
+
+                if (camera.position.distanceTo(cameraTransition.targetPos) < 0.03) {
+                    cameraTransition.active = false;
+                }
+            }
+
+            updatePartVisualStates(elapsedTime);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Start Application on Window Load
+        window.onload = function () {
+            initThree();
+        };
+    </script>
+</body>
+</html>
